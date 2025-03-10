@@ -39,8 +39,9 @@ time_ranges = {
 # 创建带有两个子图的基础图形
 fig = make_subplots(
     rows=2, cols=1,
-    subplot_titles=('汇率相对变化走势', '美债收益率相对变化走势'),
-    vertical_spacing=0.12
+    subplot_titles=('汇率相对变化走势', '美债收益率走势'),
+    vertical_spacing=0.12,
+    shared_xaxes=True  # 共享X轴
 )
 
 # 获取当前日期
@@ -59,13 +60,13 @@ for period, days in time_ranges.items():
         # 处理汇率数据
         for column in exchange_data.columns:
             base_value = period_data[column].iloc[0]
-            period_data[column] = (period_data[column] - base_value) / base_value * 100
+            relative_change = (period_data[column] - base_value) / base_value * 100
             
             # 添加汇率曲线到第一个子图
             fig.add_trace(
                 go.Scatter(
                     x=period_data.index,
-                    y=period_data[column],
+                    y=relative_change,
                     name=f"{column}",
                     line=dict(width=1.5),
                     visible=(period == '全部')
@@ -73,11 +74,8 @@ for period, days in time_ranges.items():
                 row=1, col=1
             )
         
-        # 处理美债数据
+        # 处理美债数据 - 直接使用实际值
         for column in treasury_data.columns:
-            base_value = period_data[column].iloc[0]
-            period_data[column] = (period_data[column] - base_value) / base_value * 100
-            
             # 添加美债曲线到第二个子图
             fig.add_trace(
                 go.Scatter(
@@ -143,7 +141,7 @@ fig.update_layout(
 
 # 更新布局
 fig.update_layout(
-    height=1000,  # 增加总高度以适应两个子图
+    height=1000,
     width=1200,
     hovermode='x unified',
     showlegend=True,
@@ -154,13 +152,43 @@ fig.update_layout(
         xanchor="center",
         x=0.5
     ),
-    title_text="市场数据相对变化走势"
+    title_text="市场数据走势",
+    # 修改hover和spike的全局设置
+    hoverdistance=50,
+    spikedistance=-1,  # -1表示总是显示
+    paper_bgcolor='white',
 )
 
 # 更新两个子图的坐标轴
 for i in [1, 2]:
-    fig.update_xaxes(title_text="日期", row=i, col=1, showgrid=True, gridwidth=1, gridcolor='LightGray')
-    fig.update_yaxes(title_text="相对变化 (%)", row=i, col=1, showgrid=True, gridwidth=1, gridcolor='LightGray')
+    fig.update_xaxes(
+        title_text="日期", 
+        row=i, 
+        col=1, 
+        showgrid=True, 
+        gridwidth=1, 
+        gridcolor='LightGray',
+        # 修改x轴spike设置
+        showspikes=True,
+        spikesnap='cursor',
+        spikemode='across+marker',
+        spikethickness=2,
+        spikecolor='rgba(0,0,0,0.5)',
+        spikedash='dash',
+        showline=True,
+        showticklabels=True,
+    )
+    fig.update_yaxes(
+        title_text="相对变化 (%)" if i == 1 else "收益率 (%)", 
+        row=i, 
+        col=1, 
+        showgrid=True, 
+        gridwidth=1, 
+        gridcolor='LightGray',
+        showspikes=False,  # 保持y轴不显示spike线
+        showline=True,
+        showticklabels=True,
+    )
 
 # 显示图表
 fig.show()

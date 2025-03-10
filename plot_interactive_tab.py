@@ -40,8 +40,8 @@ time_ranges = {
 fig = make_subplots(
     rows=2, cols=1,
     subplot_titles=('汇率相对变化走势', '美债收益率走势'),
-    vertical_spacing=0.12,
-    shared_xaxes=True  # 共享X轴
+    vertical_spacing=0.12,  # 稍微增加间距以避免标题重叠
+    shared_xaxes=True
 )
 
 # 获取当前日期
@@ -69,7 +69,10 @@ for period, days in time_ranges.items():
                     y=relative_change,
                     name=f"{column}",
                     line=dict(width=1.5),
-                    visible=(period == '全部')
+                    visible=(period == '全部'),
+                    legendgroup='exchange',
+                    showlegend=(period == '全部'),
+                    legendgrouptitle_text="汇率"
                 ),
                 row=1, col=1
             )
@@ -83,7 +86,10 @@ for period, days in time_ranges.items():
                     y=period_data[column],
                     name=f"{column}",
                     line=dict(width=1.5),
-                    visible=(period == '全部')
+                    visible=(period == '全部'),
+                    legendgroup='treasury',
+                    showlegend=(period == '全部'),
+                    legendgrouptitle_text="美债"
                 ),
                 row=2, col=1
             )
@@ -116,16 +122,16 @@ fig.update_layout(
         dict(
             type="buttons",
             direction="right",
-            x=0.7,
-            y=1.15,
+            x=0.65,  # 调整按钮位置
+            y=1.12,
             showactive=True,
             buttons=buttons
         ),
         dict(
             type="buttons",
             direction="right",
-            x=0.9,
-            y=1.15,
+            x=0.85,  # 调整按钮位置
+            y=1.12,
             showactive=False,
             buttons=[
                 dict(
@@ -141,34 +147,54 @@ fig.update_layout(
 
 # 更新布局
 fig.update_layout(
-    height=1000,
+    height=750,
     width=1200,
     hovermode='x unified',
     showlegend=True,
     legend=dict(
-        orientation="h",
-        yanchor="bottom",
-        y=1.02,
-        xanchor="center",
-        x=0.5
+        orientation="v",
+        yanchor="top",
+        y=0.45,  # 调整位置到中间
+        xanchor="left",
+        x=0.02,  # 调整到左侧
+        traceorder='grouped',  # 按组显示
+        groupclick="toggleitem",  # 点击组标题时切换整组
+        bgcolor='rgba(255,255,255,0.8)',
+        bordercolor='LightGray',
+        borderwidth=1
     ),
-    title_text="市场数据走势",
-    # 修改hover和spike的全局设置
+    title=dict(
+        text="市场数据走势",
+        y=0.98,
+        x=0.5,
+        xanchor='center',
+        yanchor='top'
+    ),
+    margin=dict(
+        l=50,
+        r=50,
+        t=120,
+        b=50
+    ),
     hoverdistance=50,
-    spikedistance=-1,  # -1表示总是显示
+    spikedistance=-1,
     paper_bgcolor='white',
+    dragmode='pan',
+    xaxis=dict(fixedrange=False),
+    yaxis=dict(fixedrange=True),
+    xaxis2=dict(fixedrange=False),
+    yaxis2=dict(fixedrange=True),
 )
 
 # 更新两个子图的坐标轴
 for i in [1, 2]:
     fig.update_xaxes(
-        title_text="日期", 
+        title_text="",  # 移除"日期"文字
         row=i, 
         col=1, 
         showgrid=True, 
         gridwidth=1, 
         gridcolor='LightGray',
-        # 修改x轴spike设置
         showspikes=True,
         spikesnap='cursor',
         spikemode='across+marker',
@@ -176,7 +202,8 @@ for i in [1, 2]:
         spikecolor='rgba(0,0,0,0.5)',
         spikedash='dash',
         showline=True,
-        showticklabels=True,
+        showticklabels=True,  # 显示日期数字
+        fixedrange=False,
     )
     fig.update_yaxes(
         title_text="相对变化 (%)" if i == 1 else "收益率 (%)", 
@@ -185,9 +212,10 @@ for i in [1, 2]:
         showgrid=True, 
         gridwidth=1, 
         gridcolor='LightGray',
-        showspikes=False,  # 保持y轴不显示spike线
+        showspikes=False,
         showline=True,
         showticklabels=True,
+        fixedrange=True,  # 禁止y轴缩放
     )
 
 # 显示图表

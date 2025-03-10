@@ -122,71 +122,12 @@ events = {
     '2022-03-16': '美联储加息周期启动'
 }
 
-# 设置时间范围
-time_ranges = {
-    '近1个月': pd.Timedelta(days=30),
-    '近3个月': pd.Timedelta(days=90),
-    '近6个月': pd.Timedelta(days=180),
-    '近1年': pd.Timedelta(days=365),
-    '近3年': pd.Timedelta(days=1095)
-}
+# 添加重要事件标记
+for date, label in events.items():
+    event_date = pd.to_datetime(date)
+    plt.axvline(event_date, color='red', linestyle='--', linewidth=1)
+    plt.text(event_date, data.max().max(), label,
+            rotation=90, verticalalignment='top', fontsize=8)
 
-# 创建子图
-fig, axes = plt.subplots(3, 2, figsize=(15, 12))
-axes = axes.flatten()
-
-# 获取当前日期
-current_date = data.index.max()
-
-# 为每个时间范围创建图表
-for i, (period, delta) in enumerate(time_ranges.items()):
-    if i >= 5:  # 只使用前5个子图
-        break
-        
-    # 获取时间范围内的数据
-    start_date = current_date - delta
-    period_data = data[data.index >= start_date]
-    
-    # 如果数据为空，跳过该子图
-    if period_data.empty:
-        continue
-    
-    # 计算该时期的相对变化
-    for col in period_data.columns:
-        base_value = period_data[col].iloc[0]
-        period_data[col] = (period_data[col] - base_value) / base_value * 100
-    
-    # 绘制曲线
-    for col in period_data.columns:
-        axes[i].plot(period_data.index, period_data[col], label=col, linewidth=1.5)
-    
-    # 设置子图格式
-    axes[i].set_title(f'{period}汇率变化走势', fontsize=12)
-    axes[i].set_xlabel('日期', fontsize=10)
-    axes[i].set_ylabel('相对变化（%）', fontsize=10)
-    axes[i].grid(alpha=0.3)
-    axes[i].axhline(y=0, color='black', linestyle='-', linewidth=0.5)
-    
-    # 添加重要事件标记（仅在时间范围内的事件）
-    for date, label in events.items():
-        event_date = pd.to_datetime(date)
-        if start_date <= event_date <= current_date:
-            axes[i].axvline(event_date, color='red', linestyle='--', linewidth=1)
-            axes[i].text(event_date, period_data.max().max(), label,
-                        rotation=90, verticalalignment='top', fontsize=8)
-
-# 删除多余的子图
-if len(axes) > len(time_ranges):
-    fig.delaxes(axes[-1])
-
-# 调整布局
 plt.tight_layout()
-
-# 添加统一图例
-handles, labels = axes[0].get_legend_handles_labels()
-fig.legend(handles, labels, loc='center right', bbox_to_anchor=(0.98, 0.5))
-
-# 添加总标题
-fig.suptitle('主要汇率相对变化走势分析', fontsize=14, y=1.02)
-
 plt.show()

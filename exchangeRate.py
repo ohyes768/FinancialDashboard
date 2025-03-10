@@ -66,13 +66,15 @@ except FileNotFoundError:
     data.to_csv(data_file, float_format='%.2f')
     print("数据已保存到本地文件")
 
-# 数据处理：转换汇率
-data['美元兑欧元'] = 1 / data['美元兑欧元']  # 转换为 EUR/USD
-data['美元指数'] = data['美元指数'] / 100  # 将指数转换为小数
+# 数据处理：转换汇率和标准化
+# 1. 转换汇率方向
+data['美元兑欧元'] = 1 / data['美元兑欧元']  # 转换为 USD/EUR
 
-# 保存数据到 CSV 文件
-data.to_csv(data_file)
-print("数据已保存到本地文件")
+# 2. 计算百分比变化（相对于基期的变化）
+base_date = '2000-01-03'  # 使用2000年初作为基期
+for col in data.columns:
+    base_value = data.loc[base_date:, col].iloc[0]  # 获取基期值
+    data[col] = (data[col] - base_value) / base_value * 100  # 转换为相对基期的百分比变化
 
 # 填充缺失值（向前填充）
 data = data.ffill()
@@ -82,11 +84,12 @@ plt.figure(figsize=(12,6))
 for col in data.columns:
     plt.plot(data.index, data[col], label=col, linewidth=1.5)
 
-plt.title('主要汇率走势（2000-至今）', fontsize=14)
+plt.title('主要汇率相对变化走势（2000年至今，%）', fontsize=14)
 plt.xlabel('日期', fontsize=12)
-plt.ylabel('汇率', fontsize=12)
+plt.ylabel('相对2000年初的变化（%）', fontsize=12)
 plt.legend(fontsize=10)
 plt.grid(alpha=0.3)
+plt.axhline(y=0, color='black', linestyle='-', linewidth=0.5)  # 添加零线
 
 # 标记重大事件
 events = {
@@ -96,8 +99,71 @@ events = {
     '2022-03-16': '美联储加息周期启动'
 }
 
-for date, label in events.items():
-    plt.axvline(pd.to_datetime(date), color='red', linestyle='--', linewidth=1)
-    plt.text(pd.to_datetime(date), data.max().max(), label, rotation=90, verticalalignment='top')
+# 设置时间范围
+time_ranges = {
+    '近1个月': pd.Timedelta(days=30),
+    '近3个月': pd.Timedelta(days=90),
+    '近6个月': pd.Timedelta(days=180),
+    '近1年': pd.Timedelta(days=365),
+    '近3年': pd.Timedelta(days=1095)
+}
+
+# 创建子图
+fig, axes = plt.subplots(3, 2, figsize=(15, 12))
+axes = axes.flatten()
+
+# 获取当前日期
+current_date = data.index.max()
+
+# 为每个时间范围创建图表
+for i, (period, delta) in enumerate(time_ranges.items()):
+    if i >= 5:  # 只使用前5个子图
+        break
+        
+    # 获取时间范围内的数据
+    start_date = current_date - delta
+    period_data = data[data.index >= start_date]
+    
+    # 如果数据为空，跳过该子图
+    if period_data.empty:
+        continue
+    
+    # 计算该时期的相对变化
+    for col in period_data.columns:
+        base_value = period_data[col].iloc[0]
+        period_data[col] = (period_data[col] - base_value) / base_value * 100
+    
+    # 绘制曲线
+    for col in period_data.columns:
+        axes[i].plot(period_data.index, period_data[col], label=col, linewidth=1.5)
+    
+    # 设置子图格式
+    axes[i].set_title(f'{period}汇率变化走势', fontsize=12)
+    axes[i].set_xlabel('日期', fontsize=10)
+    axes[i].set_ylabel('相对变化（%）', fontsize=10)
+    axes[i].grid(alpha=0.3)
+    axes[i].axhline(y=0, color='black', linestyle='-', linewidth=0.5)
+    
+    # 添加重要事件标记（仅在时间范围内的事件）
+    for date, label in events.items():
+        event_date = pd.to_datetime(date)
+        if start_date <= event_date <= current_date:
+            axes[i].axvline(event_date, color='red', linestyle='--', linewidth=1)
+            axes[i].text(event_date, period_data.max().max(), label,
+                        rotation=90, verticalalignment='top', fontsize=8)
+
+# 删除多余的子图
+if len(axes) > len(time_ranges):
+    fig.delaxes(axes[-1])
+
+# 调整布局
+plt.tight_layout()
+
+# 添加统一图例
+handles, labels = axes[0].get_legend_handles_labels()
+fig.legend(handles, labels, loc='center right', bbox_to_anchor=(0.98, 0.5))
+
+# 添加总标题
+fig.suptitle('主要汇率相对变化走势分析', fontsize=14, y=1.02)
 
 plt.show()

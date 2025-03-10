@@ -30,7 +30,30 @@ try:
     # 将所有数据统一为2位小数
     data = data.round(2)
     
-    # 检查数据是否需要更新
+    # 检查数据完整性
+    date_range = pd.date_range(start=data.index[0], end=data.index[-1], freq='B')
+    missing_dates = date_range.difference(data.index)
+    
+    if len(missing_dates) > 0:
+        print(f"检测到{len(missing_dates)}个交易日数据缺失，正在补充...")
+        try:
+            # 获取缺失日期的数据
+            missing_data = web.DataReader(list(series_codes.values()), 'fred', 
+                                        missing_dates[0], missing_dates[-1])
+            if not missing_data.empty:
+                missing_data.columns = series_codes.keys()
+                missing_data = missing_data.round(2)
+                # 合并数据
+                data = pd.concat([data, missing_data])
+                data = data.sort_index()
+                data = data[~data.index.duplicated(keep='last')]
+                # 保存更新后的数据
+                data.to_csv(data_file, float_format='%.2f')
+                print("缺失数据已补充并保存")
+        except Exception as e:
+            print(f"补充缺失数据时发生错误: {e}")
+    
+    # 检查是否需要更新最新数据
     last_date = pd.to_datetime(data.index[-1]).normalize()
     end = end.normalize()
     

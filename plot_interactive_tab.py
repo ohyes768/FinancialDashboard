@@ -23,8 +23,28 @@ treasury_data = treasury_data.reindex(full_index)
 treasury_data = treasury_data.interpolate(method='time')
 treasury_data = treasury_data.fillna(method='ffill').fillna(method='bfill')
 
+# 读取美债和GDP数据
+debt_gdp_file = 'treasury_and_gdp.csv'
+debt_gdp_data = pd.read_csv(debt_gdp_file, index_col=0, parse_dates=True)
+
+# 处理美债数据缺失值
+debt_gdp_data = debt_gdp_data.reindex(full_index)
+debt_gdp_data = debt_gdp_data.interpolate(method='time')
+debt_gdp_data = debt_gdp_data.fillna(method='ffill').fillna(method='bfill')
+
 # 合并所有数据
-data = pd.concat([exchange_data, treasury_data], axis=1)
+data = pd.concat([exchange_data, treasury_data, debt_gdp_data], axis=1)
+
+# 创建带有三个子图的基础图形
+fig = make_subplots(
+    rows=3, cols=1,
+    subplot_titles=('汇率相对变化走势', '美债收益率走势', '美债规模及占比走势'),
+    vertical_spacing=0.08,
+    shared_xaxes=True,
+    specs=[[{"secondary_y": False}],
+           [{"secondary_y": False}],
+           [{"secondary_y": True}]]
+)
 
 # 设置时间范围选项
 time_ranges = {
@@ -35,14 +55,6 @@ time_ranges = {
     '近3年': 1095,
     '全部': None
 }
-
-# 创建带有两个子图的基础图形
-fig = make_subplots(
-    rows=2, cols=1,
-    subplot_titles=('汇率相对变化走势', '美债收益率走势'),
-    vertical_spacing=0.12,  # 稍微增加间距以避免标题重叠
-    shared_xaxes=True
-)
 
 # 获取当前日期
 current_date = pd.Timestamp.now()
@@ -94,11 +106,44 @@ for period, days in time_ranges.items():
                 row=2, col=1
             )
 
-# 创建按钮配置
+    # 在循环中添加第三个子图的数据
+    if not period_data.empty:
+        # 添加美债规模曲线到第三个子图（左Y轴）
+        fig.add_trace(
+            go.Scatter(
+                x=period_data.index,
+                y=period_data['国债'],
+                name='美债规模',
+                line=dict(width=1.5, color='blue'),
+                visible=(period == '全部'),
+                legendgroup='debt',
+                showlegend=(period == '全部'),
+                legendgrouptitle_text="美债规模"
+            ),
+            row=3, col=1, secondary_y=False
+        )
+        
+        # 添加债务占比曲线到第三个子图（右Y轴）
+        fig.add_trace(
+            go.Scatter(
+                x=period_data.index,
+                y=period_data['债务占比'],
+                name='债务占GDP比重',
+                line=dict(width=1.5, color='red'),
+                visible=(period == '全部'),
+                legendgroup='debt_ratio',
+                showlegend=(period == '全部'),
+                legendgrouptitle_text="债务占比"
+            ),
+            row=3, col=1, secondary_y=True
+        )
+
+# 更新按钮配置
 buttons = []
 exchange_trace_count = len(exchange_data.columns)
 treasury_trace_count = len(treasury_data.columns)
-total_trace_count = exchange_trace_count + treasury_trace_count
+debt_trace_count = 2  # 美债规模和占比两条线
+total_trace_count = exchange_trace_count + treasury_trace_count + debt_trace_count
 
 for i, period in enumerate(time_ranges.keys()):
     visible = [False] * (len(time_ranges) * total_trace_count)
@@ -136,7 +181,9 @@ fig.update_layout(
             buttons=[
                 dict(
                     args=[{'xaxis.autorange': True, 'yaxis.autorange': True,
-                          'xaxis2.autorange': True, 'yaxis2.autorange': True}],
+                          'xaxis2.autorange': True, 'yaxis2.autorange': True,
+                          'xaxis3.autorange': True, 'yaxis3.autorange': True,
+                          'yaxis4.autorange': True}],  # 添加第三个子图的轴
                     label="恢复默认视图",
                     method="relayout"
                 )
@@ -147,28 +194,21 @@ fig.update_layout(
 
 # 更新布局
 fig.update_layout(
-    height=750,
+    height=1000,  # 增加整体高度
     width=1200,
     hovermode='x unified',
     showlegend=True,
     legend=dict(
         orientation="v",
         yanchor="top",
-        y=0.45,  # 调整位置到中间
+        y=0.45,
         xanchor="left",
-        x=0.02,  # 调整到左侧
-        traceorder='grouped',  # 按组显示
-        groupclick="toggleitem",  # 点击组标题时切换整组
+        x=0.02,
+        traceorder='grouped',
+        groupclick="toggleitem",
         bgcolor='rgba(255,255,255,0.8)',
         bordercolor='LightGray',
         borderwidth=1
-    ),
-    title=dict(
-        text="市场数据走势",
-        y=0.98,
-        x=0.5,
-        xanchor='center',
-        yanchor='top'
     ),
     margin=dict(
         l=50,
@@ -217,6 +257,62 @@ for i in [1, 2]:
         showticklabels=True,
         fixedrange=True,  # 禁止y轴缩放
     )
+
+# 更新三个子图的坐标轴
+for i in [1, 2, 3]:
+    fig.update_xaxes(
+        title_text="",  # 移除"日期"文字
+        row=i, 
+        col=1, 
+        showgrid=True, 
+        gridwidth=1, 
+        gridcolor='LightGray',
+        showspikes=True,
+        spikesnap='cursor',
+        spikemode='across+marker',
+        spikethickness=2,
+        spikecolor='rgba(0,0,0,0.5)',
+        spikedash='dash',
+        showline=True,
+        showticklabels=True,  # 显示日期数字
+        fixedrange=False,
+    )
+    if i < 3:  # 前两个子图的y轴设置
+        fig.update_yaxes(
+            title_text="相对变化 (%)" if i == 1 else "收益率 (%)",
+            row=i, col=1,
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='LightGray',
+            showspikes=False,
+            showline=True,
+            showticklabels=True,
+            fixedrange=True,
+        )
+    else:  # 第三个子图的双Y轴设置
+        # 左Y轴（美债规模）
+        fig.update_yaxes(
+            title_text="规模（万亿美元）",
+            row=3, col=1,
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='LightGray',
+            showspikes=False,
+            showline=True,
+            showticklabels=True,
+            fixedrange=True,
+            secondary_y=False,
+        )
+        # 右Y轴（债务占比）
+        fig.update_yaxes(
+            title_text="占GDP比重 (%)",
+            row=3, col=1,
+            showgrid=False,
+            showline=True,
+            showticklabels=True,
+            fixedrange=True,
+            secondary_y=True,
+        )
 
 # 显示图表
 fig.show()

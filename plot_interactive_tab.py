@@ -81,9 +81,9 @@ for period, days in time_ranges.items():
                     y=relative_change,
                     name=f"{column}",
                     line=dict(width=1.5),
-                    visible=(period == '全部'),
+                    visible=(period == '近3年'),  # 修改这里
                     legendgroup='exchange',
-                    showlegend=(period == '全部'),
+                    showlegend=(period == '近3年'),  # 修改这里
                     legendgrouptitle_text="汇率"
                 ),
                 row=1, col=1
@@ -98,16 +98,14 @@ for period, days in time_ranges.items():
                     y=period_data[column],
                     name=f"{column}",
                     line=dict(width=1.5),
-                    visible=(period == '全部'),
+                    visible=(period == '近3年'),  # 修改这里
                     legendgroup='treasury',
-                    showlegend=(period == '全部'),
+                    showlegend=(period == '近3年'),  # 修改这里
                     legendgrouptitle_text="美债"
                 ),
                 row=2, col=1
             )
 
-    # 在循环中添加第三个子图的数据
-    if not period_data.empty:
         # 添加美债规模曲线到第三个子图（左Y轴）
         fig.add_trace(
             go.Scatter(
@@ -115,9 +113,9 @@ for period, days in time_ranges.items():
                 y=period_data['国债'],
                 name='美债规模',
                 line=dict(width=1.5, color='blue'),
-                visible=(period == '全部'),
+                visible=(period == '近3年'),  # 修改这里
                 legendgroup='debt',
-                showlegend=(period == '全部'),
+                showlegend=(period == '近3年'),  # 修改这里
                 legendgrouptitle_text="美债规模"
             ),
             row=3, col=1, secondary_y=False
@@ -130,9 +128,9 @@ for period, days in time_ranges.items():
                 y=period_data['债务占比'],
                 name='债务占GDP比重',
                 line=dict(width=1.5, color='red'),
-                visible=(period == '全部'),
+                visible=(period == '近3年'),  # 修改这里
                 legendgroup='debt_ratio',
-                showlegend=(period == '全部'),
+                showlegend=(period == '近3年'),  # 修改这里
                 legendgrouptitle_text="债务占比"
             ),
             row=3, col=1, secondary_y=True
@@ -145,6 +143,9 @@ treasury_trace_count = len(treasury_data.columns)
 debt_trace_count = 2  # 美债规模和占比两条线
 total_trace_count = exchange_trace_count + treasury_trace_count + debt_trace_count
 
+# 设置默认选中的时间范围
+default_period = '近3年'
+
 for i, period in enumerate(time_ranges.keys()):
     visible = [False] * (len(time_ranges) * total_trace_count)
     for j in range(total_trace_count):
@@ -155,6 +156,11 @@ for i, period in enumerate(time_ranges.keys()):
             label=period,
             method="update",
             args=[
+                {"visible": visible},
+                {"title": f"市场数据相对变化走势（{period}）"}
+            ],
+            # 设置默认选中的按钮
+            args2=[
                 {"visible": visible},
                 {"title": f"市场数据相对变化走势（{period}）"}
             ]
@@ -170,6 +176,7 @@ fig.update_layout(
             x=0.65,  # 调整按钮位置
             y=1.12,
             showactive=True,
+            active=list(time_ranges.keys()).index(default_period),  # 设置默认选中按钮的索引
             buttons=buttons
         ),
         dict(
@@ -192,10 +199,14 @@ fig.update_layout(
     ]
 )
 
+# 添加读取事件文件的代码
+with open('event.txt', 'r', encoding='utf-8') as f:
+    events = [line.strip().split(' ', 1) for line in f if line.strip()]
+    
 # 更新布局
 fig.update_layout(
-    height=1000,  # 增加整体高度
-    width=1200,
+    height=1000,
+    width=1400,
     hovermode='x unified',
     showlegend=True,
     legend=dict(
@@ -212,14 +223,19 @@ fig.update_layout(
     ),
     margin=dict(
         l=50,
-        r=50,
+        r=250,
         t=120,
         b=50
     ),
     hoverdistance=50,
     spikedistance=-1,
     paper_bgcolor='white',
-    dragmode='pan',
+    dragmode='zoom',  # 将默认模式改为 zoom
+    modebar=dict(
+        activecolor='#1f77b4',  # 设置激活按钮的颜色
+        orientation='v',  # 垂直排列工具栏
+        bgcolor='rgba(255,255,255,0.8)',  # 工具栏背景色
+    ),
     xaxis=dict(fixedrange=False),
     yaxis=dict(fixedrange=True),
     xaxis2=dict(fixedrange=False),
@@ -313,6 +329,25 @@ for i in [1, 2, 3]:
             fixedrange=True,
             secondary_y=True,
         )
+
+# 添加事件列表注释
+event_text = '<br>'.join([f"{date}: {desc}" for date, desc in events])
+fig.add_annotation(
+    x=0.95,  # 调整位置更靠近图表
+    y=0.8,
+    xref='paper',
+    yref='paper',
+    text=f"<b>重大事件</b><br><br>{event_text}",
+    showarrow=False,
+    font=dict(size=11),  # 稍微减小字体大小
+    align='left',
+    bgcolor='rgba(255,255,255,0.8)',
+    bordercolor='LightGray',
+    borderwidth=1,
+    xanchor='left',
+    yanchor='middle',
+    width=280  # 限制注释框的宽度
+)
 
 # 显示图表
 fig.show()

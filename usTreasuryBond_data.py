@@ -15,8 +15,6 @@ else:  # Linux等其他系统
 
 plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 
-# 设置中文字体
-plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']  # MacOS 系统可用的中文字体
 plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 
 # 设置起止时间

@@ -2,6 +2,18 @@
 import pandas as pd
 import pandas_datareader.data as web
 import matplotlib.pyplot as plt
+import platform
+
+# 根据操作系统设置中文字体
+system = platform.system()
+if system == 'Windows':
+    plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']  # Windows系统可用的中文字体
+elif system == 'Darwin':  # MacOS
+    plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']  # MacOS系统可用的中文字体
+else:  # Linux等其他系统
+    plt.rcParams['font.sans-serif'] = ['DejaVu Sans']  # Linux常用中文字体
+
+plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']  # MacOS 系统可用的中文字体

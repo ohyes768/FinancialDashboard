@@ -16,21 +16,21 @@ treasury_data = pd.read_csv(treasury_file, index_col=0, parse_dates=True)
 full_index = pd.date_range(start=exchange_data.index.min(), end=exchange_data.index.max(), freq='B')
 exchange_data = exchange_data.reindex(full_index)
 exchange_data = exchange_data.interpolate(method='time')
-exchange_data = exchange_data.fillna(method='ffill').fillna(method='bfill')
+exchange_data = exchange_data.ffill().bfill()
 
 # 处理美债数据缺失值
 treasury_data = treasury_data.reindex(full_index)
 treasury_data = treasury_data.interpolate(method='time')
-treasury_data = treasury_data.fillna(method='ffill').fillna(method='bfill')
+treasury_data = treasury_data.ffill().bfill()
 
-# 读取美债和GDP数据
-debt_gdp_file = 'treasury_and_gdp.csv'
+# 读取美债和GDP数据（使用新的数据文件）
+debt_gdp_file = 'treasury_debt_gdp.csv'
 debt_gdp_data = pd.read_csv(debt_gdp_file, index_col=0, parse_dates=True)
 
 # 处理美债数据缺失值
 debt_gdp_data = debt_gdp_data.reindex(full_index)
 debt_gdp_data = debt_gdp_data.interpolate(method='time')
-debt_gdp_data = debt_gdp_data.fillna(method='ffill').fillna(method='bfill')
+debt_gdp_data = debt_gdp_data.ffill().bfill()
 
 # 合并所有数据
 data = pd.concat([exchange_data, treasury_data, debt_gdp_data], axis=1)
@@ -38,7 +38,7 @@ data = pd.concat([exchange_data, treasury_data, debt_gdp_data], axis=1)
 # 创建带有三个子图的基础图形
 fig = make_subplots(
     rows=3, cols=1,
-    subplot_titles=('汇率相对变化走势', '美债收益率走势', '美债规模及占比走势'),
+    subplot_titles=('汇率相对变化走势', '美债收益率走势', '美债规模、GDP规模及占比走势'),
     vertical_spacing=0.08,
     shared_xaxes=True,
     specs=[[{"secondary_y": False}],
@@ -81,9 +81,9 @@ for period, days in time_ranges.items():
                     y=relative_change,
                     name=f"{column}",
                     line=dict(width=1.5),
-                    visible=(period == '近3年'),  # 修改这里
+                    visible=(period == '近3年'),
                     legendgroup='exchange',
-                    showlegend=(period == '近3年'),  # 修改这里
+                    showlegend=(period == '近3年'),
                     legendgrouptitle_text="汇率"
                 ),
                 row=1, col=1
@@ -98,9 +98,9 @@ for period, days in time_ranges.items():
                     y=period_data[column],
                     name=f"{column}",
                     line=dict(width=1.5),
-                    visible=(period == '近3年'),  # 修改这里
+                    visible=(period == '近3年'),
                     legendgroup='treasury',
-                    showlegend=(period == '近3年'),  # 修改这里
+                    showlegend=(period == '近3年'),
                     legendgrouptitle_text="美债"
                 ),
                 row=2, col=1
@@ -110,13 +110,28 @@ for period, days in time_ranges.items():
         fig.add_trace(
             go.Scatter(
                 x=period_data.index,
-                y=period_data['国债'],
+                y=period_data['tot_pub_debt_out_amt'] / 1e12,  # 转换为万亿美元
                 name='美债规模',
                 line=dict(width=1.5, color='blue'),
-                visible=(period == '近3年'),  # 修改这里
+                visible=(period == '近3年'),
                 legendgroup='debt',
-                showlegend=(period == '近3年'),  # 修改这里
+                showlegend=(period == '近3年'),
                 legendgrouptitle_text="美债规模"
+            ),
+            row=3, col=1, secondary_y=False
+        )
+        
+        # 添加GDP规模曲线到第三个子图（左Y轴）
+        fig.add_trace(
+            go.Scatter(
+                x=period_data.index,
+                y=period_data['GDP'] / 1000,  # 转换为万亿美元（GDP原始单位为十亿美元）
+                name='GDP规模',
+                line=dict(width=1.5, color='green'),
+                visible=(period == '近3年'),
+                legendgroup='gdp',
+                showlegend=(period == '近3年'),
+                legendgrouptitle_text="GDP规模"
             ),
             row=3, col=1, secondary_y=False
         )
@@ -128,9 +143,9 @@ for period, days in time_ranges.items():
                 y=period_data['债务占比'],
                 name='债务占GDP比重',
                 line=dict(width=1.5, color='red'),
-                visible=(period == '近3年'),  # 修改这里
+                visible=(period == '近3年'),
                 legendgroup='debt_ratio',
-                showlegend=(period == '近3年'),  # 修改这里
+                showlegend=(period == '近3年'),
                 legendgrouptitle_text="债务占比"
             ),
             row=3, col=1, secondary_y=True
@@ -140,7 +155,7 @@ for period, days in time_ranges.items():
 buttons = []
 exchange_trace_count = len(exchange_data.columns)
 treasury_trace_count = len(treasury_data.columns)
-debt_trace_count = 2  # 美债规模和占比两条线
+debt_trace_count = 3  # 美债规模、GDP规模和占比三条线
 total_trace_count = exchange_trace_count + treasury_trace_count + debt_trace_count
 
 # 设置默认选中的时间范围
@@ -173,16 +188,16 @@ fig.update_layout(
         dict(
             type="buttons",
             direction="right",
-            x=0.65,  # 调整按钮位置
+            x=0.65,
             y=1.12,
             showactive=True,
-            active=list(time_ranges.keys()).index(default_period),  # 设置默认选中按钮的索引
+            active=list(time_ranges.keys()).index(default_period),
             buttons=buttons
         ),
         dict(
             type="buttons",
             direction="right",
-            x=0.85,  # 调整按钮位置
+            x=0.85,
             y=1.12,
             showactive=False,
             buttons=[
@@ -190,7 +205,7 @@ fig.update_layout(
                     args=[{'xaxis.autorange': True, 'yaxis.autorange': True,
                           'xaxis2.autorange': True, 'yaxis2.autorange': True,
                           'xaxis3.autorange': True, 'yaxis3.autorange': True,
-                          'yaxis4.autorange': True}],  # 添加第三个子图的轴
+                          'yaxis4.autorange': True}],
                     label="恢复默认视图",
                     method="relayout"
                 )
@@ -230,11 +245,11 @@ fig.update_layout(
     hoverdistance=50,
     spikedistance=-1,
     paper_bgcolor='white',
-    dragmode='zoom',  # 将默认模式改为 zoom
+    dragmode='zoom',
     modebar=dict(
-        activecolor='#1f77b4',  # 设置激活按钮的颜色
-        orientation='v',  # 垂直排列工具栏
-        bgcolor='rgba(255,255,255,0.8)',  # 工具栏背景色
+        activecolor='#1f77b4',
+        orientation='v',
+        bgcolor='rgba(255,255,255,0.8)',
     ),
     xaxis=dict(fixedrange=False),
     yaxis=dict(fixedrange=True),
@@ -242,42 +257,10 @@ fig.update_layout(
     yaxis2=dict(fixedrange=True),
 )
 
-# 更新两个子图的坐标轴
-for i in [1, 2]:
-    fig.update_xaxes(
-        title_text="",  # 移除"日期"文字
-        row=i, 
-        col=1, 
-        showgrid=True, 
-        gridwidth=1, 
-        gridcolor='LightGray',
-        showspikes=True,
-        spikesnap='cursor',
-        spikemode='across+marker',
-        spikethickness=2,
-        spikecolor='rgba(0,0,0,0.5)',
-        spikedash='dash',
-        showline=True,
-        showticklabels=True,  # 显示日期数字
-        fixedrange=False,
-    )
-    fig.update_yaxes(
-        title_text="相对变化 (%)" if i == 1 else "收益率 (%)", 
-        row=i, 
-        col=1, 
-        showgrid=True, 
-        gridwidth=1, 
-        gridcolor='LightGray',
-        showspikes=False,
-        showline=True,
-        showticklabels=True,
-        fixedrange=True,  # 禁止y轴缩放
-    )
-
 # 更新三个子图的坐标轴
 for i in [1, 2, 3]:
     fig.update_xaxes(
-        title_text="",  # 移除"日期"文字
+        title_text="",
         row=i, 
         col=1, 
         showgrid=True, 
@@ -290,7 +273,7 @@ for i in [1, 2, 3]:
         spikecolor='rgba(0,0,0,0.5)',
         spikedash='dash',
         showline=True,
-        showticklabels=True,  # 显示日期数字
+        showticklabels=True,
         fixedrange=False,
     )
     if i < 3:  # 前两个子图的y轴设置
@@ -306,7 +289,7 @@ for i in [1, 2, 3]:
             fixedrange=True,
         )
     else:  # 第三个子图的双Y轴设置
-        # 左Y轴（美债规模）
+        # 左Y轴（美债规模和GDP规模）
         fig.update_yaxes(
             title_text="规模（万亿美元）",
             row=3, col=1,
@@ -333,20 +316,20 @@ for i in [1, 2, 3]:
 # 添加事件列表注释
 event_text = '<br>'.join([f"{date}: {desc}" for date, desc in events])
 fig.add_annotation(
-    x=0.95,  # 调整位置更靠近图表
+    x=0.95,
     y=0.8,
     xref='paper',
     yref='paper',
     text=f"<b>重大事件</b><br><br>{event_text}",
     showarrow=False,
-    font=dict(size=11),  # 稍微减小字体大小
+    font=dict(size=11),
     align='left',
     bgcolor='rgba(255,255,255,0.8)',
     bordercolor='LightGray',
     borderwidth=1,
     xanchor='left',
     yanchor='middle',
-    width=280  # 限制注释框的宽度
+    width=280
 )
 
 # 显示图表

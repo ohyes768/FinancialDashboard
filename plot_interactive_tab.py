@@ -1,3 +1,4 @@
+# plot_interactive_tab.py
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -32,17 +33,27 @@ debt_gdp_data = debt_gdp_data.reindex(full_index)
 debt_gdp_data = debt_gdp_data.interpolate(method='time')
 debt_gdp_data = debt_gdp_data.ffill().bfill()
 
-# 合并所有数据
-data = pd.concat([exchange_data, treasury_data, debt_gdp_data], axis=1)
+# 读取TGA和HIBOR数据
+tga_hibor_file = 'tga_hibor_data.csv'
+tga_hibor_data = pd.read_csv(tga_hibor_file, index_col=0, parse_dates=True)
 
-# 创建带有三个子图的基础图形
+# 处理TGA和HIBOR数据缺失值
+tga_hibor_data = tga_hibor_data.reindex(full_index)
+tga_hibor_data = tga_hibor_data.interpolate(method='time')
+tga_hibor_data = tga_hibor_data.ffill().bfill()
+
+# 合并所有数据
+data = pd.concat([exchange_data, treasury_data, debt_gdp_data, tga_hibor_data], axis=1)
+
+# 创建带有四个子图的基础图形
 fig = make_subplots(
-    rows=3, cols=1,
-    subplot_titles=('汇率相对变化走势', '美债收益率走势', '美债规模、GDP规模及占比走势'),
-    vertical_spacing=0.08,
+    rows=4, cols=1,
+    subplot_titles=('汇率相对变化走势', '美债收益率走势', '美债规模、GDP规模及占比走势', 'TGA账户余额与HIBOR走势'),
+    vertical_spacing=0.06,
     shared_xaxes=True,
     specs=[[{"secondary_y": False}],
            [{"secondary_y": False}],
+           [{"secondary_y": True}],
            [{"secondary_y": True}]]
 )
 
@@ -150,13 +161,44 @@ for period, days in time_ranges.items():
             ),
             row=3, col=1, secondary_y=True
         )
+        
+        # 添加TGA数据到第四个子图（左Y轴）
+        fig.add_trace(
+            go.Scatter(
+                x=period_data.index,
+                y=period_data['TGA'] / 1e6,  # 转换为万亿美元
+                name='TGA账户余额',
+                line=dict(width=1.5, color='purple'),
+                visible=(period == '近3年'),
+                legendgroup='tga',
+                showlegend=(period == '近3年'),
+                legendgrouptitle_text="TGA账户"
+            ),
+            row=4, col=1, secondary_y=False
+        )
+        
+        # 添加HIBOR数据到第四个子图（右Y轴）
+        fig.add_trace(
+            go.Scatter(
+                x=period_data.index,
+                y=period_data['HIBOR'],
+                name='HIBOR',
+                line=dict(width=1.5, color='orange'),
+                visible=(period == '近3年'),
+                legendgroup='hibor',
+                showlegend=(period == '近3年'),
+                legendgrouptitle_text="HIBOR"
+            ),
+            row=4, col=1, secondary_y=True
+        )
 
 # 更新按钮配置
 buttons = []
 exchange_trace_count = len(exchange_data.columns)
 treasury_trace_count = len(treasury_data.columns)
 debt_trace_count = 3  # 美债规模、GDP规模和占比三条线
-total_trace_count = exchange_trace_count + treasury_trace_count + debt_trace_count
+tga_hibor_trace_count = 2  # TGA和HIBOR两条线
+total_trace_count = exchange_trace_count + treasury_trace_count + debt_trace_count + tga_hibor_trace_count
 
 # 设置默认选中的时间范围
 default_period = '近3年'
@@ -189,7 +231,7 @@ fig.update_layout(
             type="buttons",
             direction="right",
             x=0.65,
-            y=1.12,
+            y=1.15,
             showactive=True,
             active=list(time_ranges.keys()).index(default_period),
             buttons=buttons
@@ -198,14 +240,15 @@ fig.update_layout(
             type="buttons",
             direction="right",
             x=0.85,
-            y=1.12,
+            y=1.15,
             showactive=False,
             buttons=[
                 dict(
                     args=[{'xaxis.autorange': True, 'yaxis.autorange': True,
                           'xaxis2.autorange': True, 'yaxis2.autorange': True,
                           'xaxis3.autorange': True, 'yaxis3.autorange': True,
-                          'yaxis4.autorange': True}],
+                          'yaxis4.autorange': True,
+                          'xaxis4.autorange': True, 'yaxis5.autorange': True}],
                     label="恢复默认视图",
                     method="relayout"
                 )
@@ -220,10 +263,10 @@ with open('event.txt', 'r', encoding='utf-8') as f:
     
 # 更新布局
 fig.update_layout(
-    height=1000,
+    height=1200,
     width=1400,
     hovermode='x unified',
-    showlegend=True,
+    showlegend=False,
     legend=dict(
         orientation="v",
         yanchor="top",
@@ -257,8 +300,8 @@ fig.update_layout(
     yaxis2=dict(fixedrange=True),
 )
 
-# 更新三个子图的坐标轴
-for i in [1, 2, 3]:
+# 更新四个子图的坐标轴
+for i in [1, 2, 3, 4]:
     fig.update_xaxes(
         title_text="",
         row=i, 
@@ -276,9 +319,9 @@ for i in [1, 2, 3]:
         showticklabels=True,
         fixedrange=False,
     )
-    if i < 3:  # 前两个子图的y轴设置
+    if i == 1:  # 第一个子图的y轴设置
         fig.update_yaxes(
-            title_text="相对变化 (%)" if i == 1 else "收益率 (%)",
+            title_text="相对变化 (%)",
             row=i, col=1,
             showgrid=True,
             gridwidth=1,
@@ -288,7 +331,19 @@ for i in [1, 2, 3]:
             showticklabels=True,
             fixedrange=True,
         )
-    else:  # 第三个子图的双Y轴设置
+    elif i == 2:  # 第二个子图的y轴设置
+        fig.update_yaxes(
+            title_text="收益率 (%)",
+            row=i, col=1,
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='LightGray',
+            showspikes=False,
+            showline=True,
+            showticklabels=True,
+            fixedrange=True,
+        )
+    elif i == 3:  # 第三个子图的双Y轴设置
         # 左Y轴（美债规模和GDP规模）
         fig.update_yaxes(
             title_text="规模（万亿美元）",
@@ -306,6 +361,30 @@ for i in [1, 2, 3]:
         fig.update_yaxes(
             title_text="占GDP比重 (%)",
             row=3, col=1,
+            showgrid=False,
+            showline=True,
+            showticklabels=True,
+            fixedrange=True,
+            secondary_y=True,
+        )
+    elif i == 4:  # 第四个子图的双Y轴设置
+        # 左Y轴（TGA账户余额）
+        fig.update_yaxes(
+            title_text="TGA账户余额（万亿美元）",
+            row=4, col=1,
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='LightGray',
+            showspikes=False,
+            showline=True,
+            showticklabels=True,
+            fixedrange=True,
+            secondary_y=False,
+        )
+        # 右Y轴（HIBOR）
+        fig.update_yaxes(
+            title_text="HIBOR (%)",
+            row=4, col=1,
             showgrid=False,
             showline=True,
             showticklabels=True,

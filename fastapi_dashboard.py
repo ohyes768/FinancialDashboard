@@ -8,6 +8,20 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import uvicorn
+import logging
+import os
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('financial_dashboard.log', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+data_dir = os.path.join(os.path.dirname(__file__), 'data')
 
 app = FastAPI(title="Financial Dashboard", description="金融数据可视化仪表板")
 
@@ -18,46 +32,75 @@ def create_financial_chart():
     """
     创建金融数据图表，逻辑与 plot_interactive_tab.py 保持一致
     """
+    logger.info("开始创建金融数据图表")
+    
     # 读取汇率数据
-    exchange_file = 'exchange_rates.csv'
-    exchange_data = pd.read_csv(exchange_file, index_col=0, parse_dates=True)
-
+    exchange_file = os.path.join(data_dir, 'exchange_rates.csv')
+    try:
+        exchange_data = pd.read_csv(exchange_file, index_col=0, parse_dates=True)
+        logger.info(f"成功读取汇率数据，包含 {len(exchange_data)} 条记录")
+    except Exception as e:
+        logger.error(f"读取汇率数据失败: {str(e)}")
+        raise
+    
     # 读取美债收益率数据
-    treasury_file = 'treasury_yields.csv'
-    treasury_data = pd.read_csv(treasury_file, index_col=0, parse_dates=True)
-
+    treasury_file = os.path.join(data_dir, 'treasury_yields.csv')
+    try:
+        treasury_data = pd.read_csv(treasury_file, index_col=0, parse_dates=True)
+        logger.info(f"成功读取美债收益率数据，包含 {len(treasury_data)} 条记录")
+    except Exception as e:
+        logger.error(f"读取美债收益率数据失败: {str(e)}")
+        raise
+    
+    # 读取美债和GDP数据
+    debt_gdp_file = os.path.join(data_dir, 'treasury_debt_gdp.csv')
+    try:
+        debt_gdp_data = pd.read_csv(debt_gdp_file, index_col=0, parse_dates=True)
+        logger.info(f"成功读取美债和GDP数据，包含 {len(debt_gdp_data)} 条记录")
+    except Exception as e:
+        logger.error(f"读取美债和GDP数据失败: {str(e)}")
+        raise
+    
+    # 读取TGA和HIBOR数据
+    tga_hibor_file = os.path.join(data_dir, 'tga_hibor_data.csv')
+    try:
+        tga_hibor_data = pd.read_csv(tga_hibor_file, index_col=0, parse_dates=True)
+        logger.info(f"成功读取TGA和HIBOR数据，包含 {len(tga_hibor_data)} 条记录")
+    except Exception as e:
+        logger.error(f"读取TGA和HIBOR数据失败: {str(e)}")
+        raise
+    
     # 处理汇率数据缺失值
     full_index = pd.date_range(start=exchange_data.index.min(), end=exchange_data.index.max(), freq='B')
+    logger.info(f"生成完整时间索引，范围从 {full_index[0]} 到 {full_index[-1]}")
+    
     exchange_data = exchange_data.reindex(full_index)
     exchange_data = exchange_data.interpolate(method='time')
     exchange_data = exchange_data.ffill().bfill()
-
+    logger.info(f"汇率数据处理完成，最终包含 {len(exchange_data)} 条记录")
+    
     # 处理美债数据缺失值
     treasury_data = treasury_data.reindex(full_index)
     treasury_data = treasury_data.interpolate(method='time')
     treasury_data = treasury_data.ffill().bfill()
-
-    # 读取美债和GDP数据（使用新的数据文件）
-    debt_gdp_file = 'treasury_debt_gdp.csv'
-    debt_gdp_data = pd.read_csv(debt_gdp_file, index_col=0, parse_dates=True)
-
-    # 处理美债数据缺失值
+    logger.info(f"美债数据处理完成，最终包含 {len(treasury_data)} 条记录")
+    
+    # 处理美债和GDP数据缺失值
     debt_gdp_data = debt_gdp_data.reindex(full_index)
     debt_gdp_data = debt_gdp_data.interpolate(method='time')
     debt_gdp_data = debt_gdp_data.ffill().bfill()
-
-    # 读取TGA和HIBOR数据
-    tga_hibor_file = 'tga_hibor_data.csv'
-    tga_hibor_data = pd.read_csv(tga_hibor_file, index_col=0, parse_dates=True)
-
+    logger.info(f"美债和GDP数据处理完成，最终包含 {len(debt_gdp_data)} 条记录")
+    
     # 处理TGA和HIBOR数据缺失值
     tga_hibor_data = tga_hibor_data.reindex(full_index)
     tga_hibor_data = tga_hibor_data.interpolate(method='time')
     tga_hibor_data = tga_hibor_data.ffill().bfill()
-
+    logger.info(f"TGA和HIBOR数据处理完成，最终包含 {len(tga_hibor_data)} 条记录")
+    
     # 合并所有数据
     data = pd.concat([exchange_data, treasury_data, debt_gdp_data, tga_hibor_data], axis=1)
-
+    logger.info(f"数据合并完成，最终数据包含 {len(data)} 条记录，{len(data.columns)} 列")
+    
     # 创建带有四个子图的基础图形
     fig = make_subplots(
         rows=4, cols=1,
@@ -69,7 +112,7 @@ def create_financial_chart():
                [{"secondary_y": True}],
                [{"secondary_y": True}]]
     )
-
+    
     # 设置时间范围选项
     time_ranges = {
         '近1个月': 30,
@@ -79,10 +122,11 @@ def create_financial_chart():
         '近3年': 1095,
         '全部': None
     }
-
+    
     # 获取当前日期
     current_date = pd.Timestamp.now()
-
+    logger.info(f"当前日期: {current_date}")
+    
     # 为每个时间范围创建数据
     for period, days in time_ranges.items():
         if days is None:
@@ -93,6 +137,8 @@ def create_financial_chart():
         
         # 计算相对变化
         if not period_data.empty:
+            logger.info(f"处理时间范围 '{period}' 的数据，包含 {len(period_data)} 条记录")
+            
             # 处理汇率数据
             for column in exchange_data.columns:
                 base_value = period_data[column].iloc[0]
@@ -204,7 +250,7 @@ def create_financial_chart():
                 ),
                 row=4, col=1, secondary_y=True
             )
-
+    
     # 更新按钮配置
     buttons = []
     exchange_trace_count = len(exchange_data.columns)
@@ -274,9 +320,14 @@ def create_financial_chart():
     try:
         with open('event.txt', 'r', encoding='utf-8') as f:
             events = [line.strip().split(' ', 1) for line in f if line.strip()]
+        logger.info(f"成功读取事件文件，包含 {len(events)} 个事件")
     except FileNotFoundError:
         events = []
-        
+        logger.warning("事件文件未找到，将不显示重大事件")
+    except Exception as e:
+        logger.error(f"读取事件文件失败: {str(e)}")
+        events = []
+    
     # 更新布局
     fig.update_layout(
         height=1200,
@@ -428,6 +479,7 @@ def create_financial_chart():
             width=280
         )
     
+    logger.info("金融数据图表创建完成")
     return fig
 
 @app.get("/", response_class=HTMLResponse)
@@ -436,11 +488,28 @@ async def dashboard():
     主页路由，显示金融数据仪表板
     """
     try:
+        logger.info("开始生成仪表板页面")
+        
         # 创建图表
         fig = create_financial_chart()
         
-        # 将图表转换为HTML
-        chart_html = fig.to_html(include_plotlyjs='local', div_id='financial-chart')
+         # 根据运行环境选择不同的Plotly.js加载方式
+        # 检查是否在Docker环境中运行
+        if os.path.exists('/.dockerenv') or 'DOCKER_ENV' in os.environ:
+            # Docker环境使用Nginx静态资源方式
+            plotly_js_option = '/static/plotly.min.js'
+            logger.info("检测到Docker环境，使用Nginx静态资源方式加载Plotly.js")
+        else:
+            # 本地开发环境使用local方式
+            plotly_js_option = 'local'
+            logger.info("检测到本地环境，使用local方式加载Plotly.js")
+        
+        # 将图表转换为HTML，根据环境选择加载方式
+        chart_html = fig.to_html(
+            include_plotlyjs=plotly_js_option,
+            div_id='financial-chart',
+            full_html=False  # 不生成完整的HTML文档
+        )
         
         # 构建完整HTML页面
         html_content = f"""
@@ -489,8 +558,10 @@ async def dashboard():
         </body>
         </html>
         """
+        logger.info("仪表板页面生成成功")
         return html_content
     except Exception as e:
+        logger.error(f"生成仪表板页面时发生错误: {str(e)}", exc_info=True)
         error_html = f"""
         <!DOCTYPE html>
         <html>

@@ -1,7 +1,14 @@
+# exchangeRate_data.py
 import pandas as pd
 from fredapi import Fred
 import matplotlib.pyplot as plt
 import platform
+import os
+
+# 确保data目录存在
+data_dir = 'data'
+if not os.path.exists(data_dir):
+    os.makedirs(data_dir)
 
 # 根据操作系统设置中文字体
 system = platform.system()
@@ -31,7 +38,7 @@ series_codes = {
 }
 
 # 设置数据文件路径
-data_file = 'exchange_rates.csv'
+data_file = os.path.join(data_dir, 'exchange_rates.csv')  # 保存到data目录
 
 # 尝试从文件加载数据，如果文件不存在则从 FRED 获取
 try:

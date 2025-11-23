@@ -5,7 +5,13 @@ from fredapi import Fred
 import matplotlib.pyplot as plt
 import platform
 from datetime import datetime
+import os
 
+# 确保data目录存在
+data_dir = 'data'
+if not os.path.exists(data_dir):
+    os.makedirs(data_dir)
+    
 # 根据操作系统设置中文字体
 system = platform.system()
 if system == 'Windows':
@@ -26,7 +32,7 @@ end = pd.to_datetime('today') - pd.Timedelta(days=2)  # 先计算结束时间
 start = pd.to_datetime('2000-01-01')
 
 # 设置数据文件路径
-data_file = 'treasury_debt_gdp.csv'
+data_file = os.path.join(data_dir, 'treasury_debt_gdp.csv')  # 保存到data目录
 
 def get_real_time_debt():
     """

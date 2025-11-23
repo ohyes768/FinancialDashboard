@@ -4,13 +4,15 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
+import os
 
+data_dir = "data/"
 # 读取汇率数据
-exchange_file = 'exchange_rates.csv'
+exchange_file = os.path.join(data_dir, 'exchange_rates.csv')
 exchange_data = pd.read_csv(exchange_file, index_col=0, parse_dates=True)
 
 # 读取美债收益率数据
-treasury_file = 'treasury_yields.csv'
+treasury_file = os.path.join(data_dir, 'treasury_yields.csv')
 treasury_data = pd.read_csv(treasury_file, index_col=0, parse_dates=True)
 
 # 处理汇率数据缺失值
@@ -25,7 +27,7 @@ treasury_data = treasury_data.interpolate(method='time')
 treasury_data = treasury_data.ffill().bfill()
 
 # 读取美债和GDP数据（使用新的数据文件）
-debt_gdp_file = 'treasury_debt_gdp.csv'
+debt_gdp_file = os.path.join(data_dir, 'treasury_debt_gdp.csv')
 debt_gdp_data = pd.read_csv(debt_gdp_file, index_col=0, parse_dates=True)
 
 # 处理美债数据缺失值
@@ -34,7 +36,7 @@ debt_gdp_data = debt_gdp_data.interpolate(method='time')
 debt_gdp_data = debt_gdp_data.ffill().bfill()
 
 # 读取TGA和HIBOR数据
-tga_hibor_file = 'tga_hibor_data.csv'
+tga_hibor_file = os.path.join(data_dir, 'tga_hibor_data.csv')
 tga_hibor_data = pd.read_csv(tga_hibor_file, index_col=0, parse_dates=True)
 
 # 处理TGA和HIBOR数据缺失值

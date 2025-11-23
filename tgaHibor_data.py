@@ -6,6 +6,12 @@ import platform
 import requests
 import json
 from datetime import datetime, timedelta
+import os
+
+# 确保data目录存在
+data_dir = 'data'
+if not os.path.exists(data_dir):
+    os.makedirs(data_dir)
 
 # 根据操作系统设置中文字体
 system = platform.system()
@@ -22,7 +28,7 @@ plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 fred = Fred(api_key='8ecbb41e142454c0ce3ada51ebb489a8')
 
 # 设置数据文件路径
-tga_hibor_file = 'tga_hibor_data.csv'
+tga_hibor_file = os.path.join(data_dir, 'tga_hibor_data.csv')  # 保存到data目录
 
 # 设置起止时间
 end = pd.to_datetime('today') - pd.Timedelta(days=2)  # 先计算结束时间

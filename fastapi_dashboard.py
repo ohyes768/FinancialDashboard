@@ -493,16 +493,8 @@ async def dashboard():
         # 创建图表
         fig = create_financial_chart()
         
-         # 根据运行环境选择不同的Plotly.js加载方式
-        # 检查是否在Docker环境中运行
-        if os.path.exists('/.dockerenv') or 'DOCKER_ENV' in os.environ:
-            # Docker环境使用Nginx静态资源方式
-            plotly_js_option = '/static/plotly.min.js'
-            logger.info("检测到Docker环境，使用Nginx静态资源方式加载Plotly.js")
-        else:
-            # 本地开发环境使用local方式
-            plotly_js_option = 'local'
-            logger.info("检测到本地环境，使用local方式加载Plotly.js")
+        plotly_js_option = 'local'
+        logger.info("统一使用local方式加载Plotly.js")
         
         # 将图表转换为HTML，根据环境选择加载方式
         chart_html = fig.to_html(
@@ -586,5 +578,5 @@ async def health_check():
     return {"status": "healthy", "message": "Financial Dashboard is running"}
 
 if __name__ == "__main__":
-    # 启动FastAPI应用，指定端口为8000
-    uvicorn.run("fastapi_dashboard:app", host="0.0.0.0", port=8000, reload=True)
+    # 启动FastAPI应用，指定端口为8090
+    uvicorn.run("fastapi_dashboard:app", host="0.0.0.0", port=8090, reload=True)

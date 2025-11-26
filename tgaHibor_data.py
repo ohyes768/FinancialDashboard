@@ -31,7 +31,7 @@ fred = Fred(api_key='8ecbb41e142454c0ce3ada51ebb489a8')
 tga_hibor_file = os.path.join(data_dir, 'tga_hibor_data.csv')  # 保存到data目录
 
 # 设置起止时间
-end = pd.to_datetime('today') - pd.Timedelta(days=2)  # 先计算结束时间
+end = pd.to_datetime('today') - pd.Timedelta(days=1)  # 先计算结束时间
 start = pd.to_datetime('2020-01-01')
 
 # HKMA API URL

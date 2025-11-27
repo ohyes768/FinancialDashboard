@@ -66,7 +66,7 @@ def create_financial_chart():
         raise
     
     # 处理汇率数据缺失值
-    full_index = pd.date_range(start=exchange_data.index.min(), end=exchange_data.index.max(), freq='B')
+    full_index = pd.date_range(start=treasury_data.index.min(), end=treasury_data.index.max(), freq='B')
     logger.info(f"生成完整时间索引，范围从 {full_index[0]} 到 {full_index[-1]}")
     
     exchange_data = exchange_data.reindex(full_index)
